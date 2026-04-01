@@ -106,7 +106,7 @@ async function proxyUpstream(req: FastifyRequest, reply: FastifyReply): Promise<
 
   reply.code(upstream.status);
   for (const [k, v] of upstream.headers.entries()) {
-    if (k !== 'connection' && k !== 'transfer-encoding') reply.header(k, v);
+    if (k !== 'connection' && k !== 'transfer-encoding' && k !== 'content-encoding') reply.header(k, v);
   }
 
   if (!upstream.body) return reply.send('');

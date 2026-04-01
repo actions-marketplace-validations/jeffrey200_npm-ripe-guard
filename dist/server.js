@@ -34194,7 +34194,7 @@ async function proxyUpstream(req, reply) {
   const upstream = await fetch(`${UPSTREAM}${req.url}`, init);
   reply.code(upstream.status);
   for (const [k, v] of upstream.headers.entries()) {
-    if (k !== "connection" && k !== "transfer-encoding") reply.header(k, v);
+    if (k !== "connection" && k !== "transfer-encoding" && k !== "content-encoding") reply.header(k, v);
   }
   if (!upstream.body) return reply.send("");
   return reply.send(import_node_stream.Readable.fromWeb(upstream.body));
