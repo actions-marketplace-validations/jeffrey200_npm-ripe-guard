@@ -1,1 +1,3 @@
 node_modules/
+
+# dist/ is intentionally committed — the GitHub Action needs dist/server.js at runtime

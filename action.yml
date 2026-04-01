@@ -1,0 +1,36 @@
+name: npm-ripe-guard
+description: Start a local npm registry proxy that blocks packages published less than 24 hours ago.
+author: npm-ripe-guard
+
+inputs:
+  port:
+    description: Port to run the proxy on
+    required: false
+    default: '4873'
+
+runs:
+  using: composite
+  steps:
+    - name: Start npm-ripe-guard
+      shell: bash
+      env:
+        PORT: ${{ inputs.port }}
+        LOG_LEVEL: warn
+      run: |
+        node "${{ github.action_path }}/dist/server.js" &
+        echo $! > /tmp/npm-ripe-guard.pid
+
+        echo "Waiting for npm-ripe-guard to be ready..."
+        for i in $(seq 1 15); do
+          if curl -sf "http://localhost:${PORT}/health" > /dev/null 2>&1; then
+            echo "npm-ripe-guard is ready on port ${PORT}"
+            break
+          fi
+          sleep 1
+        done
+
+        echo "NPM_CONFIG_REGISTRY=http://localhost:${PORT}" >> "$GITHUB_ENV"
+
+branding:
+  icon: shield
+  color: green

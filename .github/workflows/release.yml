@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+
+      # Keep the dist up to date on the tag itself so the action always
+      # works when referenced via the version tag.
+      - name: Commit dist if changed
+        run: |
+          if ! git diff --quiet dist/; then
+            git config user.name  "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add dist/
+            git commit -m "chore: rebuild dist for ${{ github.ref_name }}"
+            git push origin HEAD:refs/tags/${{ github.ref_name }} --force
+          fi
+
+      # Move the floating major-version tag (v1, v2, …) to this release
+      # so `uses: org/npm-ripe-guard@v1` always points to the latest patch.
+      - name: Update floating major tag
+        run: |
+          MAJOR=$(echo "${{ github.ref_name }}" | cut -d. -f1)
+          git tag -f "$MAJOR"
+          git push origin "$MAJOR" --force
+
+      - name: Create GitHub Release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createRelease({
+              owner:                 context.repo.owner,
+              repo:                  context.repo.repo,
+              tag_name:              context.ref.replace('refs/tags/', ''),
+              generate_release_notes: true,
+            });
