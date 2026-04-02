@@ -34185,11 +34185,13 @@ function extractVersionFromFilename(filename) {
 async function proxyUpstream(req, reply) {
   const headers = { host: "registry.npmjs.org" };
   for (const [k, v] of Object.entries(req.headers)) {
-    if (k !== "connection" && k !== "host" && typeof v === "string") headers[k] = v;
+    if (k === "connection" || k === "host" || v == null) continue;
+    headers[k] = Array.isArray(v) ? v.join(", ") : v;
   }
   const init = { method: req.method, headers };
-  if (req.method !== "GET" && req.method !== "HEAD" && req.body != null) {
-    init.body = req.body;
+  if (req.method !== "GET" && req.method !== "HEAD") {
+    init.duplex = "half";
+    init.body = req.raw;
   }
   const upstream = await fetch(`${UPSTREAM}${req.url}`, init);
   reply.code(upstream.status);
@@ -34204,8 +34206,9 @@ var app = (0, import_fastify.default)({
   bodyLimit: 100 * 1024 * 1024
   // 100 MB — npm publish payloads can be large
 });
-app.addContentTypeParser("*", { parseAs: "buffer" }, (_req, body, done) => {
-  done(null, body);
+app.addHook("onRequest", async (req, reply) => {
+  if (req.method === "GET" || req.method === "HEAD") return;
+  await proxyUpstream(req, reply);
 });
 app.get("/health", async () => ({
   status: "ok",

@@ -94,12 +94,16 @@ function extractVersionFromFilename(filename: string): string | null {
 async function proxyUpstream(req: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
   const headers: Record<string, string> = { host: 'registry.npmjs.org' };
   for (const [k, v] of Object.entries(req.headers)) {
-    if (k !== 'connection' && k !== 'host' && typeof v === 'string') headers[k] = v;
+    if (k === 'connection' || k === 'host' || v == null) continue;
+    headers[k] = Array.isArray(v) ? v.join(', ') : v;
   }
 
   const init: RequestInit = { method: req.method, headers };
-  if (req.method !== 'GET' && req.method !== 'HEAD' && req.body != null) {
-    init.body = req.body as Buffer;
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    // Stream request body directly for non-GET requests so npm audit/publish
+    // payloads are forwarded verbatim without Fastify body parsing.
+    (init as RequestInit & { duplex: 'half'; body: unknown }).duplex = 'half';
+    (init as RequestInit & { duplex: 'half'; body: unknown }).body = req.raw;
   }
 
   const upstream = await fetch(`${UPSTREAM}${req.url}`, init);
@@ -121,10 +125,11 @@ const app = Fastify({
   bodyLimit: 100 * 1024 * 1024, // 100 MB — npm publish payloads can be large
 });
 
-// Accept every content type as a raw Buffer so non-GET requests
-// (publish, unpublish) can be forwarded verbatim.
-app.addContentTypeParser<Buffer>('*', { parseAs: 'buffer' }, (_req, body, done) => {
-  done(null, body);
+// Forward non-GET requests before body parsing so payload length checks
+// in Fastify do not interfere with transparent proxying.
+app.addHook('onRequest', async (req, reply) => {
+  if (req.method === 'GET' || req.method === 'HEAD') return;
+  await proxyUpstream(req, reply);
 });
 
 app.get('/health', async () => ({
