@@ -22,6 +22,7 @@ steps:
 ```
 
 That's it. The action starts the proxy in the background and sets `NPM_CONFIG_REGISTRY` for every subsequent step.
+It also sets `min-release-age=1`, so npm prefers older matching releases before the proxy-level hard block is applied.
 
 **Custom port:**
 
@@ -37,6 +38,8 @@ That's it. The action starts the proxy in the background and sets `NPM_CONFIG_RE
 
 ```
 npm install foo  →  npm-ripe-guard  →  registry.npmjs.org
+                          │
+                          ├─ npm min-release-age=1 prefers mature matching versions
                           │
                           ├─ fetch metadata (cached 5 min)
                           ├─ resolve dist-tag  →  exact version
@@ -91,6 +94,9 @@ npm install --registry http://localhost:4873 <package>
 
 # persistent (current user)
 npm config set registry http://localhost:4873
+
+# optional: set npm's release-age filter globally (all projects for this user)
+npm config set min-release-age 1 --location=global
 
 # per project
 echo "registry=http://localhost:4873" >> .npmrc

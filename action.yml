@@ -30,6 +30,8 @@ runs:
         done
 
         echo "NPM_CONFIG_REGISTRY=http://localhost:${PORT}" >> "$GITHUB_ENV"
+        npm config set min-release-age 1
+        echo "NPM_CONFIG_MIN_RELEASE_AGE=1" >> "$GITHUB_ENV"
 
 branding:
   icon: shield
