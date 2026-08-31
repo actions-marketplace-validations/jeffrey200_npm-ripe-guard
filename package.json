@@ -12,7 +12,7 @@
     "node": ">=18"
   },
   "dependencies": {
-    "fastify": "^5.8.4"
+    "fastify": "^5.8.5"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

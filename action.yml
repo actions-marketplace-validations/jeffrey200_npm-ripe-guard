@@ -29,14 +29,31 @@ runs:
           sleep 1
         done
 
-        if ! npm config ls -l | grep -q '^min-release-age'; then
-          echo "::error::npm-ripe-guard requires npm >= 11.10.0 to use 'min-release-age'. Current npm: $(npm -v)"
-          exit 1
+        echo "NPM_CONFIG_REGISTRY=http://localhost:${PORT}" >> "$GITHUB_ENV"
+        echo "npm_config_registry=http://localhost:${PORT}" >> "$GITHUB_ENV"
+        echo "PNPM_CONFIG_REGISTRY=http://localhost:${PORT}" >> "$GITHUB_ENV"
+        echo "pnpm_config_registry=http://localhost:${PORT}" >> "$GITHUB_ENV"
+
+        # Best effort npm soft filter (hard blocking still happens in the proxy).
+        if command -v npm >/dev/null 2>&1; then
+          if npm config ls -l | grep -q '^min-release-age'; then
+            npm config set min-release-age 1
+            echo "NPM_CONFIG_MIN_RELEASE_AGE=1" >> "$GITHUB_ENV"
+            echo "npm_config_min_release_age=1" >> "$GITHUB_ENV"
+          else
+            echo "::notice::Skipping npm min-release-age (requires npm >= 11.10.0)."
+          fi
         fi
 
-        echo "NPM_CONFIG_REGISTRY=http://localhost:${PORT}" >> "$GITHUB_ENV"
-        npm config set min-release-age 1
-        echo "NPM_CONFIG_MIN_RELEASE_AGE=1" >> "$GITHUB_ENV"
+        # Best effort pnpm soft filter. Older pnpm may ignore this key.
+        if command -v pnpm >/dev/null 2>&1; then
+          if pnpm config set minimum-release-age 1 >/dev/null 2>&1; then
+            echo "PNPM_CONFIG_MINIMUM_RELEASE_AGE=1" >> "$GITHUB_ENV"
+            echo "pnpm_config_minimum_release_age=1" >> "$GITHUB_ENV"
+          else
+            echo "::notice::Skipping pnpm minimum-release-age (unsupported by this pnpm version)."
+          fi
+        fi
 
 branding:
   icon: shield

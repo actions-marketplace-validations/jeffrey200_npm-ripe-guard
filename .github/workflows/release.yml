@@ -15,14 +15,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: npm
+          cache: pnpm
 
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm run build
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck
+      - run: pnpm run build
 
       # Keep the dist up to date on the tag itself so the action always
       # works when referenced via the version tag.

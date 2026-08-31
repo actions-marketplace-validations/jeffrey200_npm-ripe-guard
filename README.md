@@ -22,13 +22,13 @@ steps:
   - uses: your-org/npm-ripe-guard@v1
 
   - name: Install dependencies
-    run: npm ci   # automatically routed through the proxy
+    run: pnpm install --frozen-lockfile   # npm also works; both are routed through the proxy
 ```
 
-That's it. The action starts the proxy in the background and sets `NPM_CONFIG_REGISTRY` for every subsequent step.
-It also sets `min-release-age=1`, so npm prefers older matching releases before the proxy-level hard block is applied.
+That's it. The action starts the proxy in the background and sets registry env vars for both npm and pnpm (`NPM_CONFIG_REGISTRY` / `PNPM_CONFIG_REGISTRY`) for every subsequent step.
+It also tries to enable package-manager-level release-age filtering (`npm: min-release-age=1`, `pnpm: minimum-release-age=1`) before the proxy-level hard block is applied.
 
-`min-release-age` requires npm `>= 11.10.0`. If your workflow runs an older npm, the action fails with a clear error and setup hint.
+If your npm/pnpm version does not support these optional release-age settings, the action continues and relies on the proxy hard block.
 
 **Custom port:**
 
@@ -43,16 +43,16 @@ It also sets `min-release-age=1`, so npm prefers older matching releases before 
 ## How it works
 
 ```
-npm install foo  →  npm-ripe-guard  →  registry.npmjs.org
-                          │
-                          ├─ npm min-release-age=1 prefers mature matching versions
-                          │
-                          ├─ fetch metadata (cached 5 min)
-                          ├─ resolve dist-tag  →  exact version
-                          ├─ check publish timestamp
-                          │
-                          ├─ published < 24 h ago  →  403 Forbidden
-                          └─ published ≥ 24 h ago  →  stream response
+npm/pnpm install foo  →  npm-ripe-guard  →  registry.npmjs.org
+                               │
+                               ├─ npm/pnpm release-age filters prefer mature matching versions
+                               │
+                               ├─ fetch metadata (cached 5 min)
+                               ├─ resolve dist-tag  →  exact version
+                               ├─ check publish timestamp
+                               │
+                               ├─ published < 24 h ago  →  403 Forbidden
+                               └─ published ≥ 24 h ago  →  stream response
 ```
 
 - Scoped packages (`@org/pkg`) and dist-tags (`latest`, `next`, …) are handled correctly
@@ -88,36 +88,39 @@ npm error }
 ```bash
 git clone https://github.com/your-org/npm-ripe-guard
 cd npm-ripe-guard
-npm install && npm run build
-npm start
+pnpm install && pnpm run build
+pnpm start
 ```
 
-Point npm at the proxy:
+Point npm or pnpm at the proxy:
 
 ```bash
 # one-off
 npm install --registry http://localhost:4873 <package>
+pnpm add --registry http://localhost:4873 <package>
 
 # persistent (current user)
 npm config set registry http://localhost:4873
+pnpm config set registry http://localhost:4873
 
-# optional: set npm's release-age filter globally (all projects for this user)
+# optional: set package-manager release-age filters globally (all projects for this user)
 npm config set min-release-age 1 --location=global
+pnpm config set minimum-release-age 1
 
 # per project
 echo "registry=http://localhost:4873" >> .npmrc
 ```
 
-Revert: `npm config delete registry`
+Revert: `npm config delete registry` / `pnpm config delete registry`
 
 ---
 
 ## Development
 
 ```bash
-npm run dev       # start with hot-reload via tsx
-npm run typecheck # type-check without building
-npm run build     # bundle to dist/server.js (commit this)
+pnpm run dev       # start with hot-reload via tsx
+pnpm run typecheck # type-check without building
+pnpm run build     # bundle to dist/server.js (commit this)
 ```
 
 > **Note:** `dist/server.js` must be committed. The GitHub Action references it directly at runtime.
@@ -148,7 +151,7 @@ curl http://localhost:4873/health
 ## Releasing a new version
 
 ```bash
-npm run build
+pnpm run build
 git add dist/
 git commit -m "chore: rebuild dist"
 git tag v1.0.0
